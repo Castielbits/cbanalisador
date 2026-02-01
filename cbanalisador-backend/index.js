@@ -16,7 +16,7 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(), 
-        version: '1.0.4',
+        version: '1.0.5',
         env_check: {
             has_gemini: !!process.env.GEMINI_API_KEY,
             has_supabase_url: !!process.env.SUPABASE_URL,
@@ -31,105 +31,21 @@ const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABA
 // Inicialização do Google GenAI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// --- Rotas de Relatórios de Análise ---
-
-app.get('/api/reports', async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('analysis_reports')
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        res.json(data);
-    } catch (error) {
-        console.error('Error fetching reports:', error);
-        res.status(500).json({ error: `Supabase Error: ${error.message}` });
-    }
-});
-
-app.post('/api/reports', async (req, res) => {
-    try {
-        const reportData = req.body;
-        const { data, error } = await supabase
-            .from('analysis_reports')
-            .insert([reportData])
-            .select();
-        
-        if (error) throw error;
-        res.status(201).json(data[0]);
-    } catch (error) {
-        console.error('Error saving report:', error);
-        res.status(500).json({ error: `Supabase Save Error: ${error.message}` });
-    }
-});
-
-app.delete('/api/reports', async (req, res) => {
-    try {
-        const { error } = await supabase
-            .from('analysis_reports')
-            .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000');
-        
-        if (error) throw error;
-        res.status(204).send();
-    } catch (error) {
-        console.error('Error clearing history:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// --- Rotas de Configuração ---
-
-app.get('/api/config/evolution', async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('user_configs')
-            .select('config_data')
-            .eq('config_name', 'evolution_api_config')
-            .single();
-        
-        if (error && error.code !== 'PGRST116') throw error;
-        res.json(data ? data.config_data : null);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/config/evolution', async (req, res) => {
-    try {
-        const configData = req.body;
-        const { data, error } = await supabase
-            .from('user_configs')
-            .upsert({ 
-                config_name: 'evolution_api_config', 
-                config_data: configData,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'config_name' })
-            .select();
-        
-        if (error) throw error;
-        res.json(data[0].config_data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // --- Rotas da API Gemini (Proxy) ---
 
 app.post('/api/gemini/analyze', async (req, res) => {
     try {
         if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing in server environment");
         
-        // Flexibilidade para receber 'conversation' ou 'prompt'
         const conversation = req.body.conversation || (req.body.contents?.[0]?.parts?.[0]?.text) || req.body.prompt;
         
         if (!conversation) {
             return res.status(400).json({ error: 'Nenhuma conversa ou prompt fornecido' });
         }
 
+        // USANDO O NOME OFICIAL E ESTÁVEL DO MODELO
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash'
+            model: 'gemini-1.5-flash' 
         });
 
         const finalPrompt = req.body.prompt || `
@@ -163,40 +79,6 @@ app.post('/api/gemini/analyze', async (req, res) => {
     }
 });
 
-app.post('/api/gemini/transcribe', async (req, res) => {
-    try {
-        const { audioBase64, mimeType } = req.body;
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        
-        const audioPart = { inlineData: { data: audioBase64, mimeType } };
-        const textPart = { text: "Transcreva este áudio em português de forma literal:" };
-        
-        const result = await model.generateContent({ contents: [{ parts: [audioPart, textPart] }] });
-        const response = await result.response;
-        res.json({ text: response.text() });
-    } catch (error) {
-        res.status(500).json({ error: `Transcription Error: ${error.message}` });
-    }
-});
-
-app.post('/api/gemini/live-suggestion', async (req, res) => {
-    try {
-        const { prompt, responseSchema } = req.body;
-        const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash'
-        });
-        
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
-        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        res.json(JSON.parse(text));
-    } catch (error) {
-        console.error('Error in live-suggestion:', error);
-        res.status(500).json({ error: `Live Suggestion Error: ${error.message}` });
-    }
-});
-
 app.listen(port, () => {
-    console.log(`Backend v1.0.4 running on port ${port}`);
+    console.log(`Backend v1.0.5 running on port ${port}`);
 });
