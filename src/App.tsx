@@ -1,169 +1,177 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { AnalysisReport, EvolutionConfig } from './types';
+import { analyzeConversation } from './services/geminiService';
+import { apiFetch } from './services/apiService';
+import ConversationInput from './components/ConversationInput';
+import AnalysisReportComponent from './components/AnalysisReport';
+import AnalysisHistory from './components/AnalysisHistory';
+import LiveCoach from './components/LiveCoach';
+import Dashboard from './components/Dashboard';
+import IntegrationSettings from './components/IntegrationSettings';
+import ChatSelector from './components/ChatSelector';
+import { LogoIcon, ChartBarIcon, BrainCircuitIcon, TargetIcon, SettingsIcon } from './components/icons';
 
-// --- CONFIGURAÇÃO DA API ---
-const API_URL = 'https://cbanalisador-api-backend-ia.dc0yb7.easypanel.host';
-
-// --- COMPONENTES ---
+type Mode = 'dashboard' | 'analyzer' | 'liveCoach' | 'settings';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'dashboard' | 'analyzer'>('dashboard');
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<any[]>([]);
-  const [report, setReport] = useState<any | null>(null);
+  const [history, setHistory] = useState<AnalysisReport[]>([]);
+  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({
+    baseUrl: '',
+    apiKey: '',
+    instanceName: ''
+  });
+  
+  const [currentReport, setCurrentReport] = useState<AnalysisReport | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('dashboard');
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Carregar histórico ao iniciar
+  // Carregamento inicial com proteção total
   useEffect(() => {
-    fetch(`${API_URL}/api/reports`)
-      .then(res => res.json())
-      .then(data => setHistory(Array.isArray(data) ? data : []))
-      .catch(err => console.error("Erro ao carregar histórico:", err));
+    const loadData = async () => {
+        try {
+            const [reports, config] = await Promise.all([
+                apiFetch('/api/reports').catch(err => {
+                    console.warn("API Reports indisponível no momento", err);
+                    return [];
+                }),
+                apiFetch('/api/config/evolution').catch(err => {
+                    console.warn("API Config indisponível no momento", err);
+                    return null;
+                })
+            ]);
+            
+            if (Array.isArray(reports)) setHistory(reports);
+            if (config) setEvolutionConfig(config);
+        } catch (err) {
+            console.error("Erro silencioso na inicialização:", err);
+        } finally {
+            setIsInitialized(true);
+        }
+    };
+    loadData();
   }, []);
 
-  const handleAnalyze = async () => {
-    if (!text.trim()) return;
-    setLoading(true);
+  const handleAnalyze = useCallback(async (conversation: string) => {
+    if (!conversation.trim()) return;
+    setIsLoading(true);
+    setError(null);
     try {
-      // 1. Analisar
-      const res = await fetch(`${API_URL}/api/gemini/analyze`, {
+      const result = await analyzeConversation(conversation);
+      
+      const reportData = {
+        ...result,
+        original_conversation: conversation,
+      };
+      
+      const savedReport = await apiFetch('/api/reports', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          prompt: `Analise esta conversa de prospecção para a Castiel Bits:\n\n${text}`,
-          responseSchema: {
-            type: "object",
-            properties: {
-              overallScore: { type: "integer" },
-              classification: { type: "string" },
-              improvedScript: { type: "string" },
-              suggestedNextAction: { type: "string" }
-            },
-            required: ["overallScore", "classification", "improvedScript", "suggestedNextAction"]
-          }
-        })
+        body: JSON.stringify(reportData)
       });
-      const result = await res.json();
 
-      // 2. Salvar
-      const saveRes = await fetch(`${API_URL}/api/reports`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...result, original_conversation: text })
-      });
-      const savedData = await saveRes.json();
-
-      setHistory([savedData, ...history]);
-      setReport(savedData);
-    } catch (err) {
-      alert("Erro na análise. Verifique o console.");
-      console.error(err);
+      setHistory(prev => [savedReport, ...prev]);
+      setCurrentReport(savedReport);
+      setMode('analyzer');
+    } catch (err: any) {
+      console.error("Erro na análise:", err);
+      setError(err.message || 'Falha ao analisar a conversa.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleUpdateConfig = async (newConfig: EvolutionConfig) => {
+      try {
+          await apiFetch('/api/config/evolution', {
+              method: 'POST',
+              body: JSON.stringify(newConfig)
+          });
+          setEvolutionConfig(newConfig);
+          alert("Configurações salvas com sucesso!");
+      } catch (err) {
+          console.error("Erro ao atualizar config:", err);
+          alert("Erro ao salvar configurações.");
+      }
+  };
+
+  const handleClearHistory = async () => {
+    if (window.confirm('Tem certeza que deseja apagar todo o histórico permanentemente?')) {
+        try {
+            await apiFetch('/api/reports', { method: 'DELETE' });
+            setHistory([]);
+        } catch (err) {
+            console.error("Erro ao limpar histórico:", err);
+        }
+    }
+  };
+
+  const renderContent = () => {
+    // Se ainda não inicializou, mostra um loader elegante em vez de tela preta
+    if (!isInitialized) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="text-orange-500 font-black uppercase tracking-widest text-xs">Carregando Sistema...</div>
+            </div>
+        );
+    }
+
+    if (currentReport) return <AnalysisReportComponent report={currentReport} onBack={() => setCurrentReport(null)} />;
+    
+    switch (mode) {
+      case 'dashboard':
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+             <Dashboard history={history} />
+             <AnalysisHistory 
+                history={history} 
+                onViewReport={setCurrentReport} 
+                onClearHistory={handleClearHistory}
+                onExportHistory={() => {}}
+                onImportHistory={() => {}} 
+            />
+          </div>
+        );
+      case 'analyzer':
+        return (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <ConversationInput onAnalyze={handleAnalyze} isLoading={isLoading} error={error} />
+            <ChatSelector config={evolutionConfig} onImport={handleAnalyze} />
+          </div>
+        );
+      case 'liveCoach':
+        return <LiveCoach />;
+      case 'settings':
+        return <IntegrationSettings config={evolutionConfig} onUpdate={handleUpdateConfig} />;
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans p-4">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* Header */}
-        <header className="flex items-center gap-4 mb-8 border-b border-gray-800 pb-6">
-          <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center font-black text-2xl">CB</div>
-          <div>
-            <h1 className="text-2xl font-black uppercase tracking-tighter">Castiel Bits</h1>
-            <p className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">IA Prospecting System</p>
+    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans p-4 sm:p-6 lg:p-8">
+      <div className="max-w-5xl mx-auto">
+        <header className="flex flex-col sm:flex-row items-center gap-6 mb-10 py-6 border-b border-gray-900">
+          <div className="flex-shrink-0 bg-orange-500/10 p-3 rounded-2xl border border-orange-500/20">
+            <LogoIcon className="h-14 w-14 text-orange-500" />
+          </div>
+          <div className="text-center sm:text-left flex-grow">
+            <h1 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none mb-1">Castiel Bits</h1>
+            <p className="text-xs text-orange-500 font-mono font-bold tracking-[0.2em] uppercase">High Conversion Intelligence</p>
           </div>
         </header>
 
-        {/* Navigation */}
-        <nav className="flex gap-2 mb-8 bg-gray-900 p-1 rounded-xl border border-gray-800">
-          <button 
-            onClick={() => { setView('dashboard'); setReport(null); }}
-            className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${view === 'dashboard' ? 'bg-orange-500 text-white' : 'text-gray-500'}`}
-          >
-            Dashboard
-          </button>
-          <button 
-            onClick={() => { setView('analyzer'); setReport(null); }}
-            className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${view === 'analyzer' ? 'bg-orange-500 text-white' : 'text-gray-500'}`}
-          >
-            Analisar
-          </button>
+        <nav className="mb-10 sticky top-4 z-50">
+            <div className="flex p-1 bg-gray-900/80 backdrop-blur-xl rounded-xl border border-gray-800 shadow-2xl">
+                <button onClick={() => { setMode('dashboard'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'dashboard' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><ChartBarIcon className="h-4 w-4"/> Dashboard</button>
+                <button onClick={() => { setMode('analyzer'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'analyzer' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><TargetIcon className="h-4 w-4"/> Analisar</button>
+                <button onClick={() => { setMode('liveCoach'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'liveCoach' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><BrainCircuitIcon className="h-4 w-4"/> Live Coach</button>
+                <button onClick={() => { setMode('settings'); setCurrentReport(null); }} className={`flex items-center justify-center px-4 py-3 transition-all rounded-lg ${mode === 'settings' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><SettingsIcon className="h-4 w-4"/></button>
+            </div>
         </nav>
 
-        {/* Content */}
-        <main>
-          {report ? (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 animate-in fade-in duration-500">
-              <button onClick={() => setReport(null)} className="text-orange-500 text-xs font-bold mb-4 uppercase">← Voltar</button>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="text-4xl font-black text-orange-500">{report.overallScore}</div>
-                <div>
-                  <div className="text-xl font-bold">{report.classification}</div>
-                  <div className="text-xs text-gray-500">Pontuação Geral</div>
-                </div>
-              </div>
-              <div className="space-y-6">
-                <section>
-                  <h3 className="text-orange-500 text-xs font-black uppercase mb-2">Próxima Ação Sugerida</h3>
-                  <p className="bg-gray-800 p-4 rounded-xl text-sm italic">"{report.suggestedNextAction}"</p>
-                </section>
-                <section>
-                  <h3 className="text-orange-500 text-xs font-black uppercase mb-2">Script Melhorado</h3>
-                  <pre className="bg-black p-4 rounded-xl text-sm whitespace-pre-wrap border border-gray-800 text-gray-300">{report.improvedScript}</pre>
-                </section>
-              </div>
-            </div>
-          ) : view === 'dashboard' ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-                  <div className="text-gray-500 text-[10px] font-bold uppercase mb-1">Total Analisado</div>
-                  <div className="text-3xl font-black">{history.length}</div>
-                </div>
-                <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800">
-                  <div className="text-gray-500 text-[10px] font-bold uppercase mb-1">Média de Score</div>
-                  <div className="text-3xl font-black">
-                    {history.length > 0 ? Math.round(history.reduce((a,b) => a + b.overallScore, 0) / history.length) : 0}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-                <div className="p-4 border-b border-gray-800 font-bold text-xs uppercase text-gray-500">Histórico Recente</div>
-                <div className="divide-y divide-gray-800">
-                  {history.length > 0 ? history.map((item, i) => (
-                    <div key={i} onClick={() => setReport(item)} className="p-4 hover:bg-gray-800 cursor-pointer transition-all flex justify-between items-center">
-                      <div>
-                        <div className="font-bold text-sm">{item.classification}</div>
-                        <div className="text-[10px] text-gray-500">{new Date(item.created_at || Date.now()).toLocaleDateString()}</div>
-                      </div>
-                      <div className="text-orange-500 font-black text-xl">{item.overallScore}</div>
-                    </div>
-                  )) : (
-                    <div className="p-8 text-center text-gray-600 text-sm">Nenhuma análise encontrada.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <textarea 
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Cole aqui a conversa do WhatsApp..."
-                className="w-full h-64 bg-gray-900 border border-gray-800 rounded-2xl p-4 text-sm focus:border-orange-500 outline-none transition-all"
-              />
-              <button 
-                onClick={handleAnalyze}
-                disabled={loading || !text.trim()}
-                className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all ${loading ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20'}`}
-              >
-                {loading ? 'Analisando...' : 'Iniciar Análise Tática'}
-              </button>
-            </div>
-          )}
-        </main>
+        <main className="pb-20">{renderContent()}</main>
       </div>
     </div>
   );
