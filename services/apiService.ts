@@ -1,5 +1,6 @@
 
-const API_URL = 'https://cbanalisador-api-backend.dc0yb7.easypanel.host';
+// URL do backend na Hostinger (EasyPanel) - NOVO SERVIÇO backend-ia
+const API_URL = 'https://cbanalisador-api-backend-ia.dc0yb7.easypanel.host';
 
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     const response = await fetch(`${API_URL}${endpoint}`, {
