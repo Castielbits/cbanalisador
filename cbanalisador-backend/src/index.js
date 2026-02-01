@@ -13,18 +13,26 @@ app.use(express.json({ limit: '50mb' }));
 
 // Rota de Health Check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.1' });
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(), 
+        version: '1.0.2',
+        env_check: {
+            has_gemini: !!process.env.GEMINI_API_KEY,
+            has_supabase_url: !!process.env.SUPABASE_URL,
+            has_supabase_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+        }
+    });
 });
 
 // Inicialização do Supabase
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY || '');
 
 // Inicialização do Google GenAI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // --- Rotas de Relatórios de Análise ---
 
-// Buscar todos os relatórios
 app.get('/api/reports', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -36,11 +44,10 @@ app.get('/api/reports', async (req, res) => {
         res.json(data);
     } catch (error) {
         console.error('Error fetching reports:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Supabase Error: ${error.message}` });
     }
 });
 
-// Salvar um novo relatório
 app.post('/api/reports', async (req, res) => {
     try {
         const reportData = req.body;
@@ -53,17 +60,16 @@ app.post('/api/reports', async (req, res) => {
         res.status(201).json(data[0]);
     } catch (error) {
         console.error('Error saving report:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Supabase Save Error: ${error.message}` });
     }
 });
 
-// Limpar todo o histórico
 app.delete('/api/reports', async (req, res) => {
     try {
         const { error } = await supabase
             .from('analysis_reports')
             .delete()
-            .neq('id', '00000000-0000-0000-0000-000000000000'); // Deleta tudo
+            .neq('id', '00000000-0000-0000-0000-000000000000');
         
         if (error) throw error;
         res.status(204).send();
@@ -75,7 +81,6 @@ app.delete('/api/reports', async (req, res) => {
 
 // --- Rotas de Configuração ---
 
-// Buscar configuração da Evolution API
 app.get('/api/config/evolution', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -84,15 +89,13 @@ app.get('/api/config/evolution', async (req, res) => {
             .eq('config_name', 'evolution_api_config')
             .single();
         
-        if (error && error.code !== 'PGRST116') throw error; // Ignora se não encontrar
+        if (error && error.code !== 'PGRST116') throw error;
         res.json(data ? data.config_data : null);
     } catch (error) {
-        console.error('Error fetching config:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Atualizar configuração da Evolution API
 app.post('/api/config/evolution', async (req, res) => {
     try {
         const configData = req.body;
@@ -108,16 +111,16 @@ app.post('/api/config/evolution', async (req, res) => {
         if (error) throw error;
         res.json(data[0].config_data);
     } catch (error) {
-        console.error('Error updating config:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // --- Rotas da API Gemini (Proxy) ---
 
-// Analisar conversa
 app.post('/api/gemini/analyze', async (req, res) => {
     try {
+        if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing in server environment");
+        
         const { prompt, responseSchema } = req.body;
         const model = genAI.getGenerativeModel({ 
             model: 'gemini-1.5-flash',
@@ -132,36 +135,26 @@ app.post('/api/gemini/analyze', async (req, res) => {
         res.json(JSON.parse(response.text()));
     } catch (error) {
         console.error('Error in analyze:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Gemini API Error: ${error.message}` });
     }
 });
 
-// Transcrever áudio
 app.post('/api/gemini/transcribe', async (req, res) => {
     try {
         const { audioBase64, mimeType } = req.body;
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
         
-        const audioPart = {
-            inlineData: {
-                data: audioBase64,
-                mimeType,
-            },
-        };
-        const textPart = {
-            text: "Transcreva este áudio em português de forma literal:",
-        };
+        const audioPart = { inlineData: { data: audioBase64, mimeType } };
+        const textPart = { text: "Transcreva este áudio em português de forma literal:" };
         
         const result = await model.generateContent({ contents: [{ parts: [audioPart, textPart] }] });
         const response = await result.response;
         res.json({ text: response.text() });
     } catch (error) {
-        console.error('Error in transcribe:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Transcription Error: ${error.message}` });
     }
 });
 
-// Sugestão Live Coach
 app.post('/api/gemini/live-suggestion', async (req, res) => {
     try {
         const { prompt, responseSchema } = req.body;
@@ -177,8 +170,7 @@ app.post('/api/gemini/live-suggestion', async (req, res) => {
         const response = await result.response;
         res.json(JSON.parse(response.text()));
     } catch (error) {
-        console.error('Error in live-suggestion:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: `Live Suggestion Error: ${error.message}` });
     }
 });
 
