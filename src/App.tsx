@@ -1,168 +1,179 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { AnalysisReport, EvolutionConfig } from './types';
-import { analyzeConversation } from './services/geminiService';
-import { apiFetch } from './services/apiService';
-import ConversationInput from './components/ConversationInput';
-import AnalysisReportComponent from './components/AnalysisReport';
-import AnalysisHistory from './components/AnalysisHistory';
-import LiveCoach from './components/LiveCoach';
+import React, { useState, useEffect } from 'react';
+import { 
+  AnalysisReport, 
+  AnalysisResult 
+} from './types';
 import Dashboard from './components/Dashboard';
+import ConversationInput from './components/ConversationInput';
+import AnalysisReportView from './components/AnalysisReport';
+import AnalysisHistory from './components/AnalysisHistory';
 import IntegrationSettings from './components/IntegrationSettings';
-import ChatSelector from './components/ChatSelector';
-import { LogoIcon, ChartBarIcon, BrainCircuitIcon, TargetIcon, SettingsIcon } from './components/icons';
+import { 
+  ChartBarIcon, 
+  TargetIcon, 
+  BrainCircuitIcon, 
+  SettingsIcon,
+  LogoIcon
+} from './components/icons';
 
-type Mode = 'dashboard' | 'analyzer' | 'liveCoach' | 'settings';
+const API_URL = 'https://cbanalisador-api-backend-ia.dc0yb7.easypanel.host';
 
 const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'analisar' | 'historico' | 'config'>('dashboard');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisReport | null>(null);
   const [history, setHistory] = useState<AnalysisReport[]>([]);
-  const [evolutionConfig, setEvolutionConfig] = useState<EvolutionConfig>({
-    baseUrl: '',
-    apiKey: '',
-    instanceName: ''
-  });
-  
-  const [currentReport, setCurrentReport] = useState<AnalysisReport | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<Mode>('dashboard');
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-        try {
-            const [reports, config] = await Promise.all([
-                apiFetch('/api/reports').catch(() => []),
-                apiFetch('/api/config/evolution').catch(() => null)
-            ]);
-            
-            if (Array.isArray(reports)) setHistory(reports);
-            if (config) setEvolutionConfig(config);
-        } catch (err) {
-            console.error("Erro na inicialização:", err);
-        } finally {
-            setIsInitialized(true);
-        }
-    };
-    loadData();
+    const savedHistory = localStorage.getItem('analysis_history');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Erro ao carregar histórico:', e);
+      }
+    }
   }, []);
 
-  const handleAnalyze = useCallback(async (conversation: string) => {
-    if (!conversation.trim()) return;
-    setIsLoading(true);
+  const saveToHistory = (analysis: AnalysisReport) => {
+    const newHistory = [analysis, ...history];
+    setHistory(newHistory);
+    localStorage.setItem('analysis_history', JSON.stringify(newHistory));
+  };
+
+  const handleAnalyze = async (text: string) => {
+    setIsAnalyzing(true);
     setError(null);
     try {
-      const result = await analyzeConversation(conversation);
-      
-      const reportData = {
-        ...result,
-        originalConversation: conversation,
-      };
-      
-      const savedReport = await apiFetch('/api/reports', {
+      const response = await fetch(`${API_URL}/api/gemini/analyze`, {
         method: 'POST',
-        body: JSON.stringify(reportData)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation: text }),
       });
 
-      setHistory(prev => [savedReport, ...prev]);
-      setCurrentReport(savedReport);
-      setMode('analyzer');
-    } catch (err: any) {
-      setError(err.message || 'Falha ao analisar a conversa.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const handleUpdateConfig = async (newConfig: EvolutionConfig) => {
-      try {
-          await apiFetch('/api/config/evolution', {
-              method: 'POST',
-              body: JSON.stringify(newConfig)
-          });
-          setEvolutionConfig(newConfig);
-          alert("Configurações salvas!");
-      } catch (err) {
-          alert("Erro ao salvar configurações.");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro na análise');
       }
-  };
 
-  const handleClearHistory = async () => {
-    if (window.confirm('Apagar histórico?')) {
-        try {
-            await apiFetch('/api/reports', { method: 'DELETE' });
-            setHistory([]);
-        } catch (err) {
-            console.error(err);
-        }
+      const result: AnalysisResult = await response.json();
+      const report: AnalysisReport = {
+        ...result,
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        originalConversation: text,
+      };
+
+      setCurrentAnalysis(report);
+      saveToHistory(report);
+      setActiveTab('analisar');
+    } catch (err: any) {
+      setError(err.message || 'Ocorreu um erro inesperado');
+      console.error('Erro na análise:', err);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  const renderContent = () => {
-    if (!isInitialized) {
-        return (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-orange-500 font-black uppercase tracking-widest text-xs">Carregando...</div>
-            </div>
-        );
-    }
-
-    if (currentReport) return <AnalysisReportComponent report={currentReport} onBack={() => setCurrentReport(null)} />;
-    
-    switch (mode) {
-      case 'dashboard':
-        return (
-          <div className="space-y-8">
-             <Dashboard history={history} />
-             <AnalysisHistory 
-                history={history} 
-                onViewReport={setCurrentReport} 
-                onClearHistory={handleClearHistory}
-                onExportHistory={() => {}}
-                onImportHistory={() => {}} 
-            />
-          </div>
-        );
-      case 'analyzer':
-        return (
-          <div className="space-y-6">
-            <ConversationInput onAnalyze={handleAnalyze} isLoading={isLoading} error={error} />
-            <ChatSelector config={evolutionConfig} onImport={handleAnalyze} />
-          </div>
-        );
-      case 'liveCoach':
-        return <LiveCoach />;
-      case 'settings':
-        return <IntegrationSettings config={evolutionConfig} onUpdate={handleUpdateConfig} />;
-      default:
-        return null;
-    }
+  const deleteFromHistory = (id: string) => {
+    const newHistory = history.filter(item => item.id !== id);
+    setHistory(newHistory);
+    localStorage.setItem('analysis_history', JSON.stringify(newHistory));
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans p-4 sm:p-6 lg:p-8">
-      <div className="max-w-5xl mx-auto">
-        <header className="flex flex-col sm:flex-row items-center gap-6 mb-10 py-6 border-b border-gray-900">
-          <div className="flex-shrink-0 bg-orange-500/10 p-3 rounded-2xl border border-orange-500/20">
-            <LogoIcon className="h-14 w-14 text-orange-500" />
-          </div>
-          <div className="text-center sm:text-left flex-grow">
-            <h1 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter leading-none mb-1">Castiel Bits</h1>
-            <p className="text-xs text-orange-500 font-mono font-bold tracking-[0.2em] uppercase">High Conversion Intelligence</p>
-          </div>
-        </header>
-
-        <nav className="mb-10 sticky top-4 z-50">
-            <div className="flex p-1 bg-gray-900/80 backdrop-blur-xl rounded-xl border border-gray-800 shadow-2xl">
-                <button onClick={() => { setMode('dashboard'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'dashboard' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><ChartBarIcon className="h-4 w-4"/> Dashboard</button>
-                <button onClick={() => { setMode('analyzer'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'analyzer' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><TargetIcon className="h-4 w-4"/> Analisar</button>
-                <button onClick={() => { setMode('liveCoach'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'liveCoach' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><BrainCircuitIcon className="h-4 w-4"/> Live Coach</button>
-                <button onClick={() => { setMode('settings'); setCurrentReport(null); }} className={`flex items-center justify-center px-4 py-3 transition-all rounded-lg ${mode === 'settings' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><SettingsIcon className="h-4 w-4"/></button>
+    <div className="min-h-screen bg-[#050505] text-white font-sans">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#ff6b00] to-[#ff8c33] rounded-xl flex items-center justify-center shadow-lg shadow-[#ff6b00]/20">
+              <LogoIcon className="w-6 h-6 text-white" />
             </div>
-        </nav>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-white uppercase">Castiel Bits</h1>
+              <p className="text-[10px] text-[#ff6b00] font-bold tracking-[0.2em] uppercase">IA Prospecting System</p>
+            </div>
+          </div>
+          
+          <nav className="hidden md:flex items-center gap-1">
+            <button 
+              onClick={() => setActiveTab('dashboard')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white hover:bg-white/5'}`}
+            >
+              Dashboard
+            </button>
+            <button 
+              onClick={() => setActiveTab('analisar')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'analisar' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white hover:bg-white/5'}`}
+            >
+              Analisar
+            </button>
+            <button 
+              onClick={() => setActiveTab('historico')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'historico' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white hover:bg-white/5'}`}
+            >
+              Histórico
+            </button>
+            <div className="w-px h-4 bg-white/10 mx-2"></div>
+            <button 
+              onClick={() => setActiveTab('config')}
+              className={`p-2 rounded-lg transition-all ${activeTab === 'config' ? 'bg-[#ff6b00]/20 text-[#ff6b00]' : 'text-white/50 hover:text-white hover:bg-white/5'}`}
+            >
+              <SettingsIcon className="w-5 h-5" />
+            </button>
+          </nav>
+        </div>
+      </header>
 
-        <main className="pb-20">{renderContent()}</main>
-      </div>
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+            {error}
+          </div>
+        )}
+
+        {activeTab === 'dashboard' && (
+          <Dashboard history={history} onAnalyzeClick={() => setActiveTab('analisar')} />
+        )}
+
+        {activeTab === 'analisar' && (
+          <div className="space-y-8">
+            {!currentAnalysis ? (
+              <ConversationInput onAnalyze={handleAnalyze} isLoading={isAnalyzing} />
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <button 
+                    onClick={() => setCurrentAnalysis(null)}
+                    className="text-sm text-white/50 hover:text-white flex items-center gap-2 transition-colors"
+                  >
+                    ← Nova Análise
+                  </button>
+                </div>
+                <AnalysisReportView report={currentAnalysis} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'historico' && (
+          <AnalysisHistory 
+            history={history} 
+            onViewReport={(item) => {
+              setCurrentAnalysis(item);
+              setActiveTab('analisar');
+            }}
+            onDelete={deleteFromHistory}
+          />
+        )}
+
+        {activeTab === 'config' && (
+          <IntegrationSettings />
+        )}
+      </main>
     </div>
   );
 };

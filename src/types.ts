@@ -1,4 +1,4 @@
-
+'''
 export interface ScoreItem {
   score: number;
   feedback: string;
@@ -34,28 +34,20 @@ export interface LiveSuggestion {
   nextAction: string;
 }
 
-export interface BusinessStats {
-  totalAnalyzed: number;
-  averageScore: number;
-  hotOpportunities: number;
-  topImprovementArea: string;
+export interface ProspectingScriptResponse {
+  scripts: string[];
+  explanation: string;
 }
 
-export interface EvolutionConfig {
-  baseUrl: string;
-  apiKey: string;
-  instanceName: string;
+export interface AppConfig {
+  evolution: {
+    baseUrl: string;
+    apiKey: string;
+    instanceName: string;
+  };
+  supabase: {
+    url: string;
+    anonKey: string;
+  };
 }
-
-export interface EvolutionChat {
-  id: string;
-  name: string;
-  unreadCount: number;
-}
-
-export interface EvolutionMessage {
-  key: { remoteJid: string };
-  message: { conversation?: string; extendedTextMessage?: { text: string } };
-  pushName: string;
-  fromMe: boolean;
-}
+'''

@@ -1,126 +1,78 @@
-
 import React from 'react';
-import { AnalysisReport, BusinessStats } from '../types';
-import { TargetIcon, ChartBarIcon, LightbulbIcon, CheckCircleIcon } from './icons';
+import { AnalysisReport } from '../types';
+import { ChartBarIcon, TargetIcon, BrainCircuitIcon } from './icons';
 
-interface DashboardProps {
+interface Props {
   history: AnalysisReport[];
+  onAnalyzeClick: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ history }) => {
-  const calculateStats = (): BusinessStats => {
-    if (history.length === 0) return { totalAnalyzed: 0, averageScore: 0, hotOpportunities: 0, topImprovementArea: 'N/A' };
-
-    const total = history.length;
-    const avg = history.reduce((acc, curr) => acc + curr.overallScore, 0) / total;
-    const hot = history.filter(h => h.classification === 'Oportunidade Quente').length;
-    
-    const areas = ['personalizacao', 'propostaDeValor', 'timingFollowUp', 'cta', 'gestaoObjecoes'];
-    const areaScores = areas.map(area => ({
-      name: area,
-      avg: history.reduce((acc, curr) => acc + (curr.scorecard as any)[area].score, 0) / total
-    }));
-    const worstArea = areaScores.sort((a, b) => a.avg - b.avg)[0].name;
-
-    const areaLabels: Record<string, string> = {
-      personalizacao: 'Personalização',
-      propostaDeValor: 'Proposta de Valor',
-      timingFollowUp: 'Timing & Follow-up',
-      cta: 'Chamada para Ação (CTA)',
-      gestaoObjecoes: 'Gestão de Objeções'
-    };
-
-    return {
-      totalAnalyzed: total,
-      averageScore: Math.round(avg),
-      hotOpportunities: hot,
-      topImprovementArea: areaLabels[worstArea] || worstArea.toUpperCase()
-    };
-  };
-
-  const stats = calculateStats();
+const Dashboard: React.FC<Props> = ({ history, onAnalyzeClick }) => {
+  const totalAnalyzed = history.length;
+  const averageScore = totalAnalyzed > 0 
+    ? Math.round(history.reduce((acc, curr) => acc + curr.overallScore, 0) / totalAnalyzed) 
+    : 0;
+  
+  const hotOpportunities = history.filter(h => h.overallScore >= 80).length;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-      {/* Total Analyzed */}
-      <div className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl border border-gray-800 p-6 rounded-3xl transition-all hover:border-orange-500/30 group">
-        <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ChartBarIcon className="h-24 w-24 text-white" />
+    <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Welcome Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Bem-vindo, Pedro</h2>
+          <p className="text-white/50 text-sm">Acompanhe a evolução das suas prospecções na Castiel Bits.</p>
         </div>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
-            <ChartBarIcon className="h-5 w-5" />
+        <button 
+          onClick={onAnalyzeClick}
+          className="bg-[#ff6b00] hover:bg-[#ff8c33] text-white font-bold px-8 py-4 rounded-2xl shadow-lg shadow-[#ff6b00]/20 transition-all active:scale-95 flex items-center justify-center gap-3 group"
+        >
+          <BrainCircuitIcon className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+          NOVA ANÁLISE
+        </button>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <ChartBarIcon className="w-16 h-16 text-[#ff6b00]" />
           </div>
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">Interações Totais</p>
+          <p className="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Total Analisado</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black text-white">{totalAnalyzed}</span>
+            <span className="text-white/30 text-xs font-bold uppercase">Conversas</span>
+          </div>
         </div>
-        <div className="flex items-end gap-2">
-            <p className="text-4xl font-black text-white tracking-tighter">{stats.totalAnalyzed}</p>
-            <p className="text-xs text-blue-500 font-bold mb-1.5 uppercase">Analistas</p>
+
+        <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <TargetIcon className="w-16 h-16 text-[#ff6b00]" />
+          </div>
+          <p className="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Score Médio</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black text-white">{averageScore}</span>
+            <span className="text-white/30 text-xs font-bold uppercase">Pontos</span>
+          </div>
+        </div>
+
+        <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <BrainCircuitIcon className="w-16 h-16 text-[#ff6b00]" />
+          </div>
+          <p className="text-white/30 text-xs font-bold uppercase tracking-widest mb-4">Oportunidades Quentes</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-black text-white">{hotOpportunities}</span>
+            <span className="text-white/30 text-xs font-bold uppercase">Altas</span>
+          </div>
         </div>
       </div>
 
-      {/* Average Score */}
-      <div className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl border border-gray-800 p-6 rounded-3xl transition-all hover:border-orange-500/30 group">
-        <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <TargetIcon className="h-24 w-24 text-white" />
-        </div>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="p-2.5 bg-orange-500/10 rounded-xl border border-orange-500/20 text-orange-400">
-            <TargetIcon className="h-5 w-5" />
-          </div>
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">Saúde da Conversão</p>
-        </div>
-        <div className="flex items-baseline gap-2 mb-3">
-          <p className="text-4xl font-black text-white tracking-tighter">{stats.averageScore}</p>
-          <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">/100</p>
-        </div>
-        <div className="relative w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-          <div 
-            className="absolute top-0 left-0 h-full bg-gradient-to-r from-orange-600 to-orange-400 transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(249,115,22,0.3)]" 
-            style={{ width: `${stats.averageScore}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Hot Opportunities */}
-      <div className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl border border-gray-800 p-6 rounded-3xl transition-all hover:border-orange-500/30 group">
-        <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <CheckCircleIcon className="h-24 w-24 text-white" />
-        </div>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="p-2.5 bg-green-500/10 rounded-xl border border-green-500/20 text-green-400">
-            <CheckCircleIcon className="h-5 w-5" />
-          </div>
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">Oportunidades</p>
-        </div>
-        <div className="flex items-end gap-2">
-            <p className="text-4xl font-black text-white tracking-tighter">{stats.hotOpportunities}</p>
-            <p className="text-xs text-green-500 font-bold mb-1.5 uppercase">Quentes</p>
-        </div>
-        <div className="flex items-center gap-1.5 mt-3">
-            <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></div>
-            <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Potencial de fechamento imediato</p>
-        </div>
-      </div>
-
-      {/* Improvement Focus */}
-      <div className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl border border-gray-800 p-6 rounded-3xl transition-all hover:border-orange-500/30 group">
-        <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <LightbulbIcon className="h-24 w-24 text-white" />
-        </div>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="p-2.5 bg-yellow-500/10 rounded-xl border border-yellow-500/20 text-yellow-400">
-            <LightbulbIcon className="h-5 w-5" />
-          </div>
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.15em]">Gargalo Comercial</p>
-        </div>
-        <div className="min-h-[44px]">
-            <p className="text-sm font-black text-white leading-tight uppercase tracking-tight line-clamp-2">
-                {stats.topImprovementArea}
-            </p>
-        </div>
-        <p className="text-[9px] text-yellow-500/80 font-bold uppercase tracking-[0.1em] mt-2 inline-flex items-center gap-1">
-            <span className="bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">Foco Prioritário</span>
+      {/* Quick Tips */}
+      <div className="bg-gradient-to-r from-[#ff6b00]/10 to-transparent border-l-4 border-[#ff6b00] p-6 rounded-r-3xl">
+        <h4 className="text-[#ff6b00] font-bold text-sm uppercase tracking-widest mb-2">Dica de IA</h4>
+        <p className="text-white/70 text-sm leading-relaxed">
+          "Prospectos que recebem follow-up em menos de 24h com um diagnóstico técnico real têm 3x mais chance de solicitar orçamento."
         </p>
       </div>
     </div>
