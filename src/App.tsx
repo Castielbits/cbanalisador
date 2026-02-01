@@ -27,17 +27,17 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<Mode>('dashboard');
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Carregamento inicial com proteção total
   useEffect(() => {
+    console.log("App inicializado. Link da API:", 'https://cbanalisador-api-backend-ia.dc0yb7.easypanel.host');
     const loadData = async () => {
         try {
             const [reports, config] = await Promise.all([
                 apiFetch('/api/reports').catch(err => {
-                    console.warn("API Reports indisponível no momento", err);
+                    console.warn("Falha ao carrergar reports", err);
                     return [];
                 }),
                 apiFetch('/api/config/evolution').catch(err => {
-                    console.warn("API Config indisponível no momento", err);
+                    console.warn("Falha ao carregar config", err);
                     return null;
                 })
             ]);
@@ -45,7 +45,7 @@ const App: React.FC = () => {
             if (Array.isArray(reports)) setHistory(reports);
             if (config) setEvolutionConfig(config);
         } catch (err) {
-            console.error("Erro silencioso na inicialização:", err);
+            console.error("Erro na inicialização:", err);
         } finally {
             setIsInitialized(true);
         }
@@ -58,6 +58,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
+      console.log("Iniciando análise...");
       const result = await analyzeConversation(conversation);
       
       const reportData = {
@@ -88,7 +89,7 @@ const App: React.FC = () => {
               body: JSON.stringify(newConfig)
           });
           setEvolutionConfig(newConfig);
-          alert("Configurações salvas com sucesso!");
+          alert("Configurações salvas!");
       } catch (err) {
           console.error("Erro ao atualizar config:", err);
           alert("Erro ao salvar configurações.");
@@ -96,23 +97,22 @@ const App: React.FC = () => {
   };
 
   const handleClearHistory = async () => {
-    if (window.confirm('Tem certeza que deseja apagar todo o histórico permanentemente?')) {
+    if (window.confirm('Apagar histórico?')) {
         try {
             await apiFetch('/api/reports', { method: 'DELETE' });
             setHistory([]);
         } catch (err) {
-            console.error("Erro ao limpar histórico:", err);
+            console.error(err);
         }
     }
   };
 
   const renderContent = () => {
-    // Se ainda não inicializou, mostra um loader elegante em vez de tela preta
     if (!isInitialized) {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
                 <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-orange-500 font-black uppercase tracking-widest text-xs">Carregando Sistema...</div>
+                <div className="text-orange-500 font-black uppercase tracking-widest text-xs">Sincronizando Sistema...</div>
             </div>
         );
     }
