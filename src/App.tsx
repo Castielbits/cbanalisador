@@ -6,6 +6,7 @@ import {
   AnalysisResult 
 } from './types';
 import Dashboard from './components/Dashboard';
+import AdvancedDashboard from './components/AdvancedDashboard';
 import ConversationInput from './components/ConversationInput';
 import AnalysisReportView from './components/AnalysisReport';
 import AnalysisHistory from './components/AnalysisHistory';
@@ -162,7 +163,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'dashboard' && <Dashboard history={history} onAnalyzeClick={() => setActiveTab('analisar')} />}
+        {activeTab === 'dashboard' && <AdvancedDashboard history={history} onAnalyzeClick={() => setActiveTab('analisar')} />}
         {activeTab === 'analisar' && (
           <div className="space-y-8">
             {!currentAnalysis ? <ConversationInput onAnalyze={handleAnalyze} isLoading={isAnalyzing} /> : (
