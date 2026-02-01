@@ -16,7 +16,7 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         timestamp: new Date().toISOString(), 
-        version: '1.0.3',
+        version: '1.0.4',
         env_check: {
             has_gemini: !!process.env.GEMINI_API_KEY,
             has_supabase_url: !!process.env.SUPABASE_URL,
@@ -121,18 +121,42 @@ app.post('/api/gemini/analyze', async (req, res) => {
     try {
         if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is missing in server environment");
         
-        const { prompt, responseSchema } = req.body;
-        const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash',
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema
-            }
-        });
+        // Flexibilidade para receber 'conversation' ou 'prompt'
+        const conversation = req.body.conversation || (req.body.contents?.[0]?.parts?.[0]?.text) || req.body.prompt;
         
-        const result = await model.generateContent(prompt);
+        if (!conversation) {
+            return res.status(400).json({ error: 'Nenhuma conversa ou prompt fornecido' });
+        }
+
+        const model = genAI.getGenerativeModel({ 
+            model: 'gemini-1.5-flash'
+        });
+
+        const finalPrompt = req.body.prompt || `
+            Analise a seguinte conversa de prospecção no WhatsApp e forneça um relatório detalhado em formato JSON.
+            
+            CONVERSA:
+            ${conversation}
+            
+            FORMATO DE RESPOSTA (JSON APENAS):
+            {
+              "overallScore": 0-100,
+              "classification": "Fria", "Morna" ou "Quente",
+              "nextAction": "Sua recomendação",
+              "improvedScript": "O que dizer em seguida",
+              "strengths": ["Ponto 1", "Ponto 2"],
+              "weaknesses": ["Melhoria 1", "Melhoria 2"]
+            }
+        `;
+        
+        const result = await model.generateContent(finalPrompt);
         const response = await result.response;
-        res.json(JSON.parse(response.text()));
+        let text = response.text();
+        
+        // Limpar markdown do JSON se necessário
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        res.json(JSON.parse(text));
     } catch (error) {
         console.error('Error in analyze:', error);
         res.status(500).json({ error: `Gemini API Error: ${error.message}` });
@@ -159,16 +183,14 @@ app.post('/api/gemini/live-suggestion', async (req, res) => {
     try {
         const { prompt, responseSchema } = req.body;
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash',
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema
-            }
+            model: 'gemini-1.5-flash'
         });
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        res.json(JSON.parse(response.text()));
+        let text = response.text();
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        res.json(JSON.parse(text));
     } catch (error) {
         console.error('Error in live-suggestion:', error);
         res.status(500).json({ error: `Live Suggestion Error: ${error.message}` });
@@ -176,5 +198,5 @@ app.post('/api/gemini/live-suggestion', async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Backend running on port ${port}`);
+    console.log(`Backend v1.0.4 running on port ${port}`);
 });
