@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { AnalysisReport } from '../types';
 import { EyeIcon, TrashIcon, UploadIcon, DownloadIcon } from './icons';
@@ -50,7 +49,6 @@ const AnalysisHistory: React.FC<AnalysisHistoryProps> = ({ history, onViewReport
               onChange={handleFileChange}
               style={{ display: 'none' }}
               accept=".json"
-              aria-hidden="true"
             />
             <button
                 type="button"

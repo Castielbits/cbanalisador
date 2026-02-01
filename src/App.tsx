@@ -55,7 +55,7 @@ const App: React.FC = () => {
       
       const reportData = {
         ...result,
-        original_conversation: conversation,
+        originalConversation: conversation,
       };
       
       const savedReport = await apiFetch('/api/reports', {
@@ -154,10 +154,10 @@ const App: React.FC = () => {
 
         <nav className="mb-10 sticky top-4 z-50">
             <div className="flex p-1 bg-gray-900/80 backdrop-blur-xl rounded-xl border border-gray-800 shadow-2xl">
-                <button onClick={() => { setMode('dashboard'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'dashboard' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><ChartBarIcon className="h-4 w-4"/> Dashboard</button>
-                <button onClick={() => { setMode('analyzer'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'analyzer' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><TargetIcon className="h-4 w-4"/> Analisar</button>
-                <button onClick={() => { setMode('liveCoach'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'liveCoach' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><BrainCircuitIcon className="h-4 w-4"/> Live Coach</button>
-                <button onClick={() => { setMode('settings'); setCurrentReport(null); }} className={`flex items-center justify-center px-4 py-3 transition-all rounded-lg ${mode === 'settings' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><SettingsIcon className="h-4 w-4"/></button>
+                <button onClick={() => { setMode('dashboard'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'dashboard' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><ChartBarIcon className="h-4 w-4"/> Dashboard</button>
+                <button onClick={() => { setMode('analyzer'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'analyzer' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><TargetIcon className="h-4 w-4"/> Analisar</button>
+                <button onClick={() => { setMode('liveCoach'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'liveCoach' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><BrainCircuitIcon className="h-4 w-4"/> Live Coach</button>
+                <button onClick={() => { setMode('settings'); setCurrentReport(null); }} className={`flex items-center justify-center px-4 py-3 transition-all rounded-lg ${mode === 'settings' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><SettingsIcon className="h-4 w-4"/></button>
             </div>
         </nav>
 
