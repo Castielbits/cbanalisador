@@ -11,9 +11,10 @@ import ReportExporter from './ReportExporter';
 interface Props {
   history: AnalysisReport[];
   onAnalyzeClick: () => void;
+  onImport?: (data: any) => void;
 }
 
-const AdvancedDashboard: React.FC<Props> = ({ history, onAnalyzeClick }) => {
+const AdvancedDashboard: React.FC<Props> = ({ history, onAnalyzeClick, onImport }) => {
   const [filteredHistory, setFilteredHistory] = useState<AnalysisReport[]>(history);
 
   const stats = useMemo(() => {
@@ -240,7 +241,7 @@ const AdvancedDashboard: React.FC<Props> = ({ history, onAnalyzeClick }) => {
         </div>
       </div>
 
-      <ReportExporter history={filteredHistory} />
+      <ReportExporter history={filteredHistory} onImport={onImport} />
 
       <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl">
         <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">

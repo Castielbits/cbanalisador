@@ -131,6 +131,45 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImport = async (data: any) => {
+    try {
+      let reportsToImport: any[] = [];
+      
+      if (data.analyses && Array.isArray(data.analyses)) {
+        reportsToImport = data.analyses;
+      } else if (Array.isArray(data)) {
+        reportsToImport = data;
+      } else {
+        reportsToImport = [data];
+      }
+
+      const formattedImports = reportsToImport.map(report => ({
+        original_conversation: report.originalConversation || report.original_conversation || "",
+        result: {
+          overallScore: report.overallScore,
+          classification: report.classification,
+          nextAction: report.nextAction || report.suggestedNextAction,
+          improvedScript: report.improvedScript,
+          strengths: report.strengths || report.whatWentWell || [],
+          weaknesses: report.weaknesses || report.whatToImprove || []
+        },
+        created_at: report.date || report.created_at || new Date().toISOString()
+      }));
+
+      const { error: importError } = await supabase
+        .from('analysis_reports')
+        .insert(formattedImports);
+
+      if (importError) throw importError;
+
+      alert(`${formattedImports.length} análise(s) importada(s) com sucesso!`);
+      fetchHistory();
+    } catch (err: any) {
+      alert(`Erro na importação: ${err.message}`);
+      console.error('Erro detalhado:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans">
       <header className="border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50">
@@ -163,7 +202,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'dashboard' && <AdvancedDashboard history={history} onAnalyzeClick={() => setActiveTab('analisar')} />}
+        {activeTab === 'dashboard' && <AdvancedDashboard history={history} onAnalyzeClick={() => setActiveTab('analisar')} onImport={handleImport} />}
         {activeTab === 'analisar' && (
           <div className="space-y-8">
             {!currentAnalysis ? <ConversationInput onAnalyze={handleAnalyze} isLoading={isAnalyzing} /> : (
