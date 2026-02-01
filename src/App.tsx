@@ -18,7 +18,7 @@ import {
 
 // Configurações - Pegando das variáveis de ambiente da Vercel
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ynolbecdhefndkzgcmia.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_DqoCtTcn4_onDpr9lmUxOA_8XzqP6CY';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlub2xiZWNkaGVmbmRremdjbWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0NDk4NjksImV4cCI6MjA1NDAyNTg2OX0.vY4S_v3S-G_v9_mYv_vY4S_v3S-G_v9_mYv_vY4S_v3S'; // Chave anônima pública
 const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyC4qs9NSHCm_pQ-zAQU9-NFJeSKhqozdyI';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
