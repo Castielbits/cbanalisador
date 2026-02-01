@@ -28,18 +28,11 @@ const App: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    console.log("App inicializado. Link da API:", 'https://cbanalisador-api-backend-ia.dc0yb7.easypanel.host');
     const loadData = async () => {
         try {
             const [reports, config] = await Promise.all([
-                apiFetch('/api/reports').catch(err => {
-                    console.warn("Falha ao carrergar reports", err);
-                    return [];
-                }),
-                apiFetch('/api/config/evolution').catch(err => {
-                    console.warn("Falha ao carregar config", err);
-                    return null;
-                })
+                apiFetch('/api/reports').catch(() => []),
+                apiFetch('/api/config/evolution').catch(() => null)
             ]);
             
             if (Array.isArray(reports)) setHistory(reports);
@@ -58,7 +51,6 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Iniciando análise...");
       const result = await analyzeConversation(conversation);
       
       const reportData = {
@@ -75,7 +67,6 @@ const App: React.FC = () => {
       setCurrentReport(savedReport);
       setMode('analyzer');
     } catch (err: any) {
-      console.error("Erro na análise:", err);
       setError(err.message || 'Falha ao analisar a conversa.');
     } finally {
       setIsLoading(false);
@@ -91,7 +82,6 @@ const App: React.FC = () => {
           setEvolutionConfig(newConfig);
           alert("Configurações salvas!");
       } catch (err) {
-          console.error("Erro ao atualizar config:", err);
           alert("Erro ao salvar configurações.");
       }
   };
@@ -112,7 +102,7 @@ const App: React.FC = () => {
         return (
             <div className="flex flex-col items-center justify-center h-64 space-y-4">
                 <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-orange-500 font-black uppercase tracking-widest text-xs">Sincronizando Sistema...</div>
+                <div className="text-orange-500 font-black uppercase tracking-widest text-xs">Carregando...</div>
             </div>
         );
     }
@@ -122,7 +112,7 @@ const App: React.FC = () => {
     switch (mode) {
       case 'dashboard':
         return (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="space-y-8">
              <Dashboard history={history} />
              <AnalysisHistory 
                 history={history} 
@@ -135,7 +125,7 @@ const App: React.FC = () => {
         );
       case 'analyzer':
         return (
-          <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="space-y-6">
             <ConversationInput onAnalyze={handleAnalyze} isLoading={isLoading} error={error} />
             <ChatSelector config={evolutionConfig} onImport={handleAnalyze} />
           </div>
@@ -164,10 +154,10 @@ const App: React.FC = () => {
 
         <nav className="mb-10 sticky top-4 z-50">
             <div className="flex p-1 bg-gray-900/80 backdrop-blur-xl rounded-xl border border-gray-800 shadow-2xl">
-                <button onClick={() => { setMode('dashboard'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'dashboard' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><ChartBarIcon className="h-4 w-4"/> Dashboard</button>
-                <button onClick={() => { setMode('analyzer'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'analyzer' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><TargetIcon className="h-4 w-4"/> Analisar</button>
-                <button onClick={() => { setMode('liveCoach'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'liveCoach' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><BrainCircuitIcon className="h-4 w-4"/> Live Coach</button>
-                <button onClick={() => { setMode('settings'); setCurrentReport(null); }} className={`flex items-center justify-center px-4 py-3 transition-all rounded-lg ${mode === 'settings' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}><SettingsIcon className="h-4 w-4"/></button>
+                <button onClick={() => { setMode('dashboard'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'dashboard' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><ChartBarIcon className="h-4 w-4"/> Dashboard</button>
+                <button onClick={() => { setMode('analyzer'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'analyzer' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><TargetIcon className="h-4 w-4"/> Analisar</button>
+                <button onClick={() => { setMode('liveCoach'); setCurrentReport(null); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-black uppercase transition-all rounded-lg ${mode === 'liveCoach' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><BrainCircuitIcon className="h-4 w-4"/> Live Coach</button>
+                <button onClick={() => { setMode('settings'); setCurrentReport(null); }} className={`flex items-center justify-center px-4 py-3 transition-all rounded-lg ${mode === 'settings' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-gray-300'}`}><SettingsIcon className="h-4 w-4"/></button>
             </div>
         </nav>
 
