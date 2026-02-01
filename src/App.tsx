@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { AnalysisReport, EvolutionConfig } from './types';
 import { analyzeConversation } from './services/geminiService';
@@ -27,18 +26,22 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('dashboard');
 
-  // Carregar dados iniciais do Backend (Supabase)
+  // Carregar dados iniciais com "Escudo" contra erros críticos
   useEffect(() => {
     const loadData = async () => {
         try {
+            console.log("Tentando carregar dados iniciais...");
             const [reports, config] = await Promise.all([
-                apiFetch('/api/reports'),
-                apiFetch('/api/config/evolution')
+                apiFetch('/api/reports').catch(e => { console.warn("Falha ao carregar relatórios:", e); return []; }),
+                apiFetch('/api/config/evolution').catch(e => { console.warn("Falha ao carregar config:", e); return null; })
             ]);
-            setHistory(reports || []);
+            
+            if (reports) setHistory(reports);
             if (config) setEvolutionConfig(config);
+            console.log("Dados carregados com sucesso (ou ignorados com segurança)");
         } catch (err) {
-            console.error("Erro ao carregar dados:", err);
+            console.error("ERRO NO USEEFFECT:", err);
+            // Não deixa a tela ficar preta, apenas loga o erro
         }
     };
     loadData();
@@ -55,7 +58,6 @@ const App: React.FC = () => {
         original_conversation: conversation,
       };
       
-      // Salvar no Backend (Supabase)
       const savedReport = await apiFetch('/api/reports', {
         method: 'POST',
         body: JSON.stringify(reportData)
@@ -65,7 +67,7 @@ const App: React.FC = () => {
       setCurrentReport(savedReport);
       setMode('analyzer');
     } catch (err: any) {
-      console.error(err);
+      console.error("Erro na análise:", err);
       setError(err.message || 'Falha ao analisar a conversa.');
     } finally {
       setIsLoading(false);
@@ -96,7 +98,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Funções de exportação/importação podem ser mantidas como utilitários locais ou removidas se o Supabase for suficiente
   const handleExportHistory = () => {
       if (history.length === 0) return alert("Histórico vazio.");
       const blob = new Blob([JSON.stringify(history, null, 2)], { type: "application/json" });
@@ -120,7 +121,7 @@ const App: React.FC = () => {
                 onViewReport={setCurrentReport} 
                 onClearHistory={handleClearHistory}
                 onExportHistory={handleExportHistory}
-                onImportHistory={() => {}} // Importação direta pode ser implementada via loop de POSTs
+                onImportHistory={() => {}} 
             />
           </div>
         );
